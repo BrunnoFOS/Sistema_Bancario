@@ -1,3 +1,4 @@
+import re
 import textwrap
 import csv
 
@@ -83,38 +84,69 @@ class Cliente:
             self.endereco = novo_endereco
             print("\n=== Informações atualizadas! ===")
 
-def exibir_menu():
+def exibir_menu_inicial():
     menu_texto = """\n
-=============== MENU ================
-[d]\tDepositar
+=============== MENU INICIAL ================
+[nc]\tNovo Cliente
+[nco]\tNova Conta
+[l]\tLogin
+[q]\tSair
+=> """
+    return input(menu_texto)
+
+def exibir_menu_principal():
+    menu_texto = """\n
+=============== MENU PRINCIPAL ================
 [s]\tSacar
 [t]\tTransferir
 [h]\tHistórico
 [j]\tAplicar Juros
 [ai]\tAtualizar Informações
-[nc]\tNova conta
 [ec]\tEncerrar conta
 [lc]\tListar contas
-[nu]\tNovo cliente
+[mi]\tVoltar para o Menu Inicial
 [q]\tSair
 => """
     return input(menu_texto)
 
 def criar_cliente():
-    cpf = input("CPF (somente números): ")
-    nome = input("Nome completo: ")
-    data_nascimento = input("Data de nascimento (dd-mm-aaaa): ")
-    endereco = input("Endereço (logradouro, nro - bairro - cidade/sigla estado): ")
-    return Cliente(nome, data_nascimento, cpf, endereco)
+    cpf_pattern = re.compile(r'^\d{11}$')
+    data_nascimento_pattern = re.compile(r'^\d{2}[-/]\d{2}[-/]\d{4}$')
+    nome_pattern = re.compile(r'^[a-zA-Z\s]+$')
+    endereco_pattern = re.compile(r'^[a-zA-Z0-9\s,.-]+$')
+
+    while True:
+        cpf = input("CPF (somente números): ")
+        if not cpf_pattern.match(cpf):
+            print("CPF inválido. Deve conter 11 dígitos.")
+            continue
+        nome = input("Nome completo: ")
+        if not nome_pattern.match(nome):
+            print("Nome inválido. Deve conter apenas letras e espaços.")
+            continue
+        data_nascimento = input("Data de nascimento (dd-mm-aaaa): ")
+        if not data_nascimento_pattern.match(data_nascimento):
+            print("Data de nascimento inválida. Deve estar no formato dd-mm-aaaa ou dd/mm/aaaa.")
+            continue
+        endereco = input("Endereço (logradouro, nro - bairro - cidade/sigla estado): ")
+        if not endereco_pattern.match(endereco):
+            print("Endereço inválido. Deve conter apenas letras, números e os caracteres ,.-.")
+            continue
+        return Cliente(nome, data_nascimento, cpf, endereco)
 
 def criar_conta(clientes):
-    cpf = input("CPF do cliente: ")
-    cliente = next((c for c in clientes if c.cpf == cpf), None)
-    if cliente:
-        print("\n=== Conta criada com sucesso! ===")
-        return ContaBancaria("0001", len(clientes) + 1, cliente)
-    print("\n@@@ Cliente não encontrado! @@@")
-    return None
+    cpf_pattern = re.compile(r'^\d{11}$')
+    while True:
+        cpf = input("CPF do cliente: ")
+        if not cpf_pattern.match(cpf):
+            print("CPF inválido. Deve conter 11 dígitos.")
+            continue
+        cliente = next((c for c in clientes if c.cpf == cpf), None)
+        if cliente:
+            print("\n=== Conta criada com sucesso! ===")
+            return ContaBancaria("0001", len(clientes) + 1, cliente)
+        print("\n@@@ Cliente não encontrado! @@@")
+        print("Por favor, crie um cliente antes de criar uma conta.")
 
 def listar_contas(contas):
     if not contas:
@@ -138,77 +170,77 @@ def exportar_extrato(conta):
                 writer.writerow([tipo.strip(), float(valor.strip()[3:])])
     print(f"\n=== Extrato exportado para '{nome_arquivo}'! ===")
 
+def login_cliente(clientes, contas):
+    cpf_pattern = re.compile(r'^\d{11}$')
+    while True:
+        cpf = input("CPF (somente números): ")
+        if not cpf_pattern.match(cpf):
+            print("CPF inválido. Deve conter 11 dígitos.")
+            continue
+        cliente = next((c for c in clientes if c.cpf == cpf), None)
+        if cliente:
+            conta_cliente = next((conta for conta in contas if conta.cliente == cliente), None)
+            if conta_cliente:
+                print("\n=== Login bem-sucedido! ===")
+                return cliente, conta_cliente
+            else:
+                print("\n@@@ Cliente sem conta associada! @@@")
+                print("Por favor, crie uma conta para este cliente antes de fazer login.")
+        else:
+            print("\n@@@ Cliente não encontrado! @@@")
+            print("Por favor, crie um cliente antes de fazer login.")
+
 def main():
     clientes = []
     contas = []
+    cliente_logado = None
 
     while True:
-        opcao = exibir_menu()
+        opcao_inicial = exibir_menu_inicial()
 
-        if opcao == "d":
-            try:
-                valor = float(input("Valor do depósito: "))
-                contas[-1].depositar(valor)
-            except ValueError:
-                print("\n@@@ Falha! Valor inválido. Informe um número válido. @@@")
+        if opcao_inicial == "nc":
+            novo_cliente = criar_cliente()
+            clientes.append(novo_cliente)
+            print("\n=== Cliente criado com sucesso! ===")
+        elif opcao_inicial == "nco":
+            if not clientes:
+                print("Por favor, crie um cliente antes de criar uma conta.")
                 continue
-
-        elif opcao == "s":
-            try:
-                valor = float(input("Valor do saque: "))
-                contas[-1].sacar(valor)
-            except ValueError:
-                print("\n@@@ Falha! Valor inválido. Informe um número válido. @@@")
+            nova_conta = criar_conta(clientes)
+            if nova_conta:
+                contas.append(nova_conta)
+        elif opcao_inicial == "l":
+            if not clientes or not contas:
+                print("Por favor, crie um cliente e uma conta antes de fazer login.")
                 continue
-
-        elif opcao == "t":
-            try:
-                conta_destino = int(input("Digite o número da conta de destino: "))
-                valor_transferencia = float(input("Digite o valor da transferência: "))
-                conta_destino -= 1  # Ajuste para índice de lista
-                if 0 <= conta_destino < len(contas):
-                    contas[-1].transferir(contas[conta_destino], valor_transferencia)
-                else:
-                    print("\n@@@ Conta de destino inválida! @@@")
-            except ValueError:
-                print("\n@@@ Falha! Valor inválido. Informe um número válido. @@@")
-                continue
-
-        elif opcao == "h":
-            contas[-1].ver_historico()
-
-        elif opcao == "j":
-            taxa_juros = float(input("Digite a taxa de juros a ser aplicada (%): "))
-            contas[-1].calcular_juros(taxa_juros)
-
-        elif opcao == "ai":
-            clientes[-1].atualizar_informacoes()
-
-        elif opcao == "nc":
-            conta = criar_conta(clientes)
-            if conta:
-                contas.append(conta)
-
-        elif opcao == "ec":
-            contas.pop()
-            print("\n=== Conta encerrada com sucesso! ===")
-
-        elif opcao == "lc":
-            listar_contas(contas)
-
-        elif opcao == "nu":
-            clientes.append(criar_cliente())
-
-        elif opcao == "q":
-            break
-
-        elif opcao == "ee":
-            if contas:
-                exportar_extrato(contas[-1])
-            else:
-                print("\n@@@ Nenhuma conta disponível para exportar extrato! @@@")
-        
+            cliente_logado, conta_logada = login_cliente(clientes, contas)
+            if cliente_logado and conta_logada:
+                while True:
+                    opcao_principal = exibir_menu_principal()
+                    if opcao_principal == "s":
+                        pass
+                    elif opcao_principal == "t":
+                        pass
+                    elif opcao_principal == "h":
+                        pass
+                    elif opcao_principal == "j":
+                        pass
+                    elif opcao_principal == "ai":
+                        pass
+                    elif opcao_principal == "ec":
+                        pass
+                    elif opcao_principal == "lc":
+                        pass
+                    elif opcao_principal == "mi":
+                        cliente_logado = None
+                        break
+                    elif opcao_principal == "q":
+                        return
+                    else:
+                        print("Opção inválida. Selecione novamente.")
+        elif opcao_inicial == "q":
+            return
         else:
             print("Opção inválida. Selecione novamente.")
 
-    main()
+main()
