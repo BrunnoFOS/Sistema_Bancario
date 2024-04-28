@@ -65,7 +65,7 @@ def criar_usuario(usuarios):
 
     if usuario:
         print("\n@@@ Já existe usuário com esse CPF! @@@")
-        return
+        return False
 
     nome = input("Informe o nome completo: ")
     data_nascimento = input("Informe a data de nascimento (dd-mm-aaaa): ")
@@ -74,6 +74,7 @@ def criar_usuario(usuarios):
     usuarios.append({"nome": nome, "data_nascimento": data_nascimento, "cpf": cpf, "endereco": endereco})
 
     print("=== Usuário criado com sucesso! ===")
+    return True
 
 
 def filtrar_usuario(cpf, usuarios):
@@ -90,9 +91,14 @@ def criar_conta(agencia, numero_conta, usuarios):
         return {"agencia": agencia, "numero_conta": numero_conta, "usuario": usuario}
 
     print("\n@@@ Usuário não encontrado, fluxo de criação de conta encerrado! @@@")
+    return None
 
 
 def listar_contas(contas):
+    if not contas:
+        print("\n@@@ Não há contas para listar. @@@")
+        return
+
     for conta in contas:
         linha = f"""\
             Agência:\t{conta['agencia']}
@@ -138,7 +144,11 @@ def main():
             exibir_extrato(saldo, extrato=extrato)
 
         elif opcao == "nu":
-            criar_usuario(usuarios)
+            criou_usuario = criar_usuario(usuarios)
+            if criou_usuario:
+                print("Usuário criado com sucesso!")
+            else:
+                print("Falha ao criar usuário.")
 
         elif opcao == "nc":
             numero_conta = len(contas) + 1
@@ -146,6 +156,8 @@ def main():
 
             if conta:
                 contas.append(conta)
+            else:
+                print("Falha ao criar conta.")
 
         elif opcao == "lc":
             listar_contas(contas)
