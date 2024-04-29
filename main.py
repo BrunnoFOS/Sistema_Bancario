@@ -1,21 +1,16 @@
-import re
-import textwrap
-import csv
-
 class ContaBancaria:
+    
     def __init__(self, agencia, numero_conta, cliente):
         self.agencia = agencia
         self.numero_conta = numero_conta
         self.cliente = cliente
         self.saldo = 0
-        self.limite = 500
         self.historico = ""
         self.num_saques = 0
-        self.LIM_SAQUES = 3
 
     def depositar(self, valor):
         if valor <= 0:
-            print("\n@@@ Falha! Valor inválido. @@@")
+            print("\nFalha! Valor inválido.")
             return
         self.saldo += valor
         self.historico += f"Depósito: R$ {valor:.2f}\n"
@@ -23,36 +18,17 @@ class ContaBancaria:
 
     def sacar(self, valor):
         if valor <= 0:
-            print("\n@@@ Falha! Valor inválido. @@@")
+            print("\nFalha! Valor inválido.")
             return
-        saldo_insuf = valor > self.saldo
-        limite_excedido = valor > self.limite
-        saques_excedidos = self.num_saques >= self.LIM_SAQUES
+        saldo_insuficiente = valor > self.saldo
 
-        if saldo_insuf:
-            print("\n@@@ Falha! Saldo insuficiente. @@@")
-        elif limite_excedido:
-            print("\n@@@ Falha! Limite de saque excedido. @@@")
-        elif saques_excedidos:
-            print("\n@@@ Falha! Número máximo de saques atingido. @@@")
+        if saldo_insuficiente:
+            print("\nFalha! Saldo insuficiente.")
         else:
             self.saldo -= valor
             self.historico += f"Saque: R$ {valor:.2f}\n"
             self.num_saques += 1
             print("\n=== Saque realizado! ===")
-
-    def transferir(self, outra_conta, valor):
-        if valor <= 0:
-            print("\n@@@ Falha! Valor inválido. @@@")
-            return
-        if valor > self.saldo:
-            print("\n@@@ Falha! Saldo insuficiente. @@@")
-            return
-
-        self.saldo -= valor
-        outra_conta.depositar(valor)
-        self.historico += f"Transferência enviada para {outra_conta.cliente.nome}: R$ {valor:.2f}\n"
-        outra_conta.historico += f"Transferência recebida de {self.cliente.nome}: R$ {valor:.2f}\n"
 
     def ver_historico(self):
         print("\n=========== HISTÓRICO ===========")
@@ -60,20 +36,39 @@ class ContaBancaria:
         print(f"\nSaldo: R$ {self.saldo:.2f}")
         print("=================================")
 
-    def calcular_juros(self, taxa):
-        juros = self.saldo * (taxa / 100)
-        self.saldo += juros
-        self.historico += f"Juros aplicados: R$ {juros:.2f}\n"
-        print("\n=== Juros aplicados! ===")
+    def calcular_juros(self):
+        taxa_anual = float(input("Informe a taxa de juros anual (%): "))
+        anos = int(input("Informe o número de anos para simulação: "))
+        taxa_mensal = taxa_anual / 12 / 100
+        saldo_final = self.saldo * ((1 + taxa_mensal) ** (anos * 12))
+        print(f"\nSimulação de juros após {anos} anos:")
+        print(f"Saldo inicial: R$ {self.saldo:.2f}")
+        print(f"Saldo após {anos} anos: R$ {saldo_final:.2f}")
+        return saldo_final
+
+    def listar_informacoes_conta(self):
+        print("\n=========== INFORMAÇÕES DA CONTA ===========")
+        print(f"Número da Conta: {self.numero_conta:05d}")
+        print(f"CPF: {self.cliente.cpf}")
+        print(f"Nome do Titular: {self.cliente.nome}")
+        print(f"Data de Nascimento: {self.cliente.data_nascimento}")
+        print(f"Endereço: {self.cliente.endereco}")
+        print("=============================================")
+
+    def encerrar_conta(self, contas):
+        contas.remove(self)
+        print("\n=== Conta encerrada com sucesso! ===")
+
 
 class Cliente:
+    
     def __init__(self, nome, data_nascimento, cpf, endereco):
         self.nome = nome
         self.data_nascimento = data_nascimento
         self.cpf = cpf
         self.endereco = endereco
 
-    def atualizar_informacoes(self):
+    def atualizar_informacoes(self, contas):
         print("\n=== Atualização de informações pessoais ===")
         print("Opções de atualização:")
         print("1. Endereço")
@@ -83,6 +78,11 @@ class Cliente:
             novo_endereco = input("Novo endereço: ")
             self.endereco = novo_endereco
             print("\n=== Informações atualizadas! ===")
+            
+            for conta in contas:
+                if conta.cliente == self:
+                    conta.cliente.endereco = novo_endereco
+
 
 def exibir_menu_inicial():
     menu_texto = """\n
@@ -94,88 +94,71 @@ def exibir_menu_inicial():
 => """
     return input(menu_texto)
 
+
 def exibir_menu_principal():
     menu_texto = """\n
 =============== MENU PRINCIPAL ================
 [s]\tSacar
-[t]\tTransferir
+[d]\tDepositar
 [h]\tHistórico
 [j]\tAplicar Juros
 [ai]\tAtualizar Informações
 [ec]\tEncerrar conta
-[lc]\tListar contas
+[li]\tListar informações da conta
 [mi]\tVoltar para o Menu Inicial
 [q]\tSair
 => """
     return input(menu_texto)
 
-def criar_cliente():
-    cpf_pattern = re.compile(r'^\d{11}$')
-    data_nascimento_pattern = re.compile(r'^\d{2}[-/]\d{2}[-/]\d{4}$')
-    nome_pattern = re.compile(r'^[a-zA-Z\s]+$')
-    endereco_pattern = re.compile(r'^[a-zA-Z0-9\s,.-]+$')
 
+def depositar_valor(conta):
+    while True:
+        valor_deposito_str = input("Informe o valor a depositar: ")
+        if not valor_deposito_str.replace('.', '', 1).isdigit():
+            print("Valor inválido. Por favor, insira um número válido.")
+            continue
+        valor_deposito = float(valor_deposito_str)
+        conta.depositar(valor_deposito)
+        break
+
+
+def criar_cliente():
     while True:
         cpf = input("CPF (somente números): ")
-        if not cpf_pattern.match(cpf):
-            print("CPF inválido. Deve conter 11 dígitos.")
+        if not cpf.isdigit() or len(cpf) != 11:
+            print("CPF inválido. Deve conter 11 dígitos numéricos.")
             continue
         nome = input("Nome completo: ")
-        if not nome_pattern.match(nome):
+        if not nome.replace(' ', '').isalpha():
             print("Nome inválido. Deve conter apenas letras e espaços.")
             continue
         data_nascimento = input("Data de nascimento (dd-mm-aaaa): ")
-        if not data_nascimento_pattern.match(data_nascimento):
-            print("Data de nascimento inválida. Deve estar no formato dd-mm-aaaa ou dd/mm/aaaa.")
+        if len(data_nascimento) != 10 or data_nascimento[2] != '-' or data_nascimento[5] != '-':
+            print("Data de nascimento inválida. Deve estar no formato dd-mm-aaaa.")
             continue
         endereco = input("Endereço (logradouro, nro - bairro - cidade/sigla estado): ")
-        if not endereco_pattern.match(endereco):
-            print("Endereço inválido. Deve conter apenas letras, números e os caracteres ,.-.")
-            continue
         return Cliente(nome, data_nascimento, cpf, endereco)
 
+
 def criar_conta(clientes):
-    cpf_pattern = re.compile(r'^\d{11}$')
     while True:
         cpf = input("CPF do cliente: ")
-        if not cpf_pattern.match(cpf):
-            print("CPF inválido. Deve conter 11 dígitos.")
+        if not cpf.isdigit() or len(cpf) != 11:
+            print("CPF inválido. Deve conter 11 dígitos numéricos.")
             continue
         cliente = next((c for c in clientes if c.cpf == cpf), None)
         if cliente:
             print("\n=== Conta criada com sucesso! ===")
             return ContaBancaria("0001", len(clientes) + 1, cliente)
-        print("\n@@@ Cliente não encontrado! @@@")
+        print("\nCliente não encontrado!")
         print("Por favor, crie um cliente antes de criar uma conta.")
 
-def listar_contas(contas):
-    if not contas:
-        print("\n@@@ Nenhuma conta disponível. @@@")
-        return
-
-    for conta in contas:
-        print("=" * 35)
-        print(f"Agência:\t{conta.agencia}")
-        print(f"C/C:\t\t{conta.numero_conta}")
-        print(f"Titular:\t{conta.cliente.nome}")
-
-def exportar_extrato(conta):
-    nome_arquivo = f"extrato_conta_{conta.numero_conta}.csv"
-    with open(nome_arquivo, mode='w', newline='') as arquivo:
-        writer = csv.writer(arquivo)
-        writer.writerow(['Transação', 'Valor'])
-        for transacao in conta.historico.split('\n'):
-            if transacao:
-                tipo, valor = transacao.split(':')
-                writer.writerow([tipo.strip(), float(valor.strip()[3:])])
-    print(f"\n=== Extrato exportado para '{nome_arquivo}'! ===")
 
 def login_cliente(clientes, contas):
-    cpf_pattern = re.compile(r'^\d{11}$')
     while True:
         cpf = input("CPF (somente números): ")
-        if not cpf_pattern.match(cpf):
-            print("CPF inválido. Deve conter 11 dígitos.")
+        if not cpf.isdigit() or len(cpf) != 11:
+            print("CPF inválido. Deve conter 11 dígitos numéricos.")
             continue
         cliente = next((c for c in clientes if c.cpf == cpf), None)
         if cliente:
@@ -184,11 +167,12 @@ def login_cliente(clientes, contas):
                 print("\n=== Login bem-sucedido! ===")
                 return cliente, conta_cliente
             else:
-                print("\n@@@ Cliente sem conta associada! @@@")
+                print("\nCliente sem conta associada!")
                 print("Por favor, crie uma conta para este cliente antes de fazer login.")
         else:
-            print("\n@@@ Cliente não encontrado! @@@")
+            print("\nCliente não encontrado!")
             print("Por favor, crie um cliente antes de fazer login.")
+
 
 def main():
     clientes = []
@@ -218,19 +202,21 @@ def main():
                 while True:
                     opcao_principal = exibir_menu_principal()
                     if opcao_principal == "s":
-                        pass
-                    elif opcao_principal == "t":
-                        pass
+                        valor_saque = float(input("Informe o valor a sacar: "))
+                        conta_logada.sacar(valor_saque)
+                    elif opcao_principal == "d":
+                        depositar_valor(conta_logada)
                     elif opcao_principal == "h":
-                        pass
+                        conta_logada.ver_historico()
                     elif opcao_principal == "j":
-                        pass
+                        conta_logada.calcular_juros()
                     elif opcao_principal == "ai":
-                        pass
+                        conta_logada.cliente.atualizar_informacoes(contas)
                     elif opcao_principal == "ec":
-                        pass
-                    elif opcao_principal == "lc":
-                        pass
+                        conta_logada.encerrar_conta(contas)
+                        break
+                    elif opcao_principal == "li":
+                        conta_logada.listar_informacoes_conta()
                     elif opcao_principal == "mi":
                         cliente_logado = None
                         break
@@ -242,5 +228,6 @@ def main():
             return
         else:
             print("Opção inválida. Selecione novamente.")
+
 
 main()
