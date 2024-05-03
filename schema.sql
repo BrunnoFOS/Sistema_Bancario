@@ -16,3 +16,12 @@ CREATE TABLE clientes (
     data_nascimento DATE,
     endereco VARCHAR(255)
 );
+
+CREATE TABLE transacoes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    conta_id INT,
+    tipo ENUM('Depósito', 'Saque') NOT NULL,
+    valor DECIMAL(15, 2),
+    data_transacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (conta_id) REFERENCES contas(id)
+);
